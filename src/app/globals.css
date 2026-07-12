@@ -2,26 +2,95 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 98%; /* #FAFAFA */
+    --foreground: 0 0% 10%; /* #1A1A1A */
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+
+    --primary: 238 84% 67%; /* Indigo/electric blue */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 238 84% 67%;
+
+    --radius: 1rem;
+
+    /* Status Colors */
+    --status-pending: 215.4 16.3% 46.9%; /* Gray */
+    --status-queued: 38 92% 50%; /* Amber */
+    --status-processing: 221 83% 53%; /* Blue */
+    --status-ready: 271 91% 65%; /* Purple */
+    --status-completed: 142 71% 45%; /* Green */
+    --status-requeued: 24 95% 53%; /* Orange */
+    --status-failed: 0 84% 60%; /* Red */
+    --status-cancelled: 215 16% 47%; /* Slate */
+  }
+
+  .dark {
+    --background: 220 17% 7%; /* #0F1115 */
+    --foreground: 0 0% 93%; /* #EDEDED */
+
+    --card: 223 14% 10%; /* #16181D */
+    --card-foreground: 0 0% 93%;
+
+    --popover: 223 14% 10%;
+    --popover-foreground: 0 0% 93%;
+
+    --primary: 238 90% 70%; /* Brighter indigo for contrast */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 238 90% 70%;
+
+    /* Status Colors (Desaturated for dark mode) */
+    --status-pending: 215 16% 55%; 
+    --status-queued: 38 80% 55%; 
+    --status-processing: 221 70% 60%; 
+    --status-ready: 271 75% 70%; 
+    --status-completed: 142 60% 50%; 
+    --status-requeued: 24 85% 60%; 
+    --status-failed: 0 75% 65%; 
+    --status-cancelled: 215 16% 55%; 
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
