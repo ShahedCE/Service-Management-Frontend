@@ -46,43 +46,30 @@
   }
 
   .dark {
-    --background: 220 17% 7%; /* #0F1115 */
-    --foreground: 0 0% 93%; /* #EDEDED */
-
-    --card: 223 14% 10%; /* #16181D */
-    --card-foreground: 0 0% 93%;
-
-    --popover: 223 14% 10%;
-    --popover-foreground: 0 0% 93%;
-
-    --primary: 238 90% 70%; /* Brighter indigo for contrast */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 236 100% 67%; /* Soft Blue-Indigo */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 238 90% 70%;
-
-    /* Status Colors (Desaturated for dark mode) */
-    --status-pending: 215 16% 55%; 
-    --status-queued: 38 80% 55%; 
-    --status-processing: 221 70% 60%; 
-    --status-ready: 271 75% 70%; 
-    --status-completed: 142 60% 50%; 
-    --status-requeued: 24 85% 60%; 
-    --status-failed: 0 75% 65%; 
-    --status-cancelled: 215 16% 55%; 
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
   }
 }
 
@@ -92,5 +79,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Smooth Theme Transitions */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
