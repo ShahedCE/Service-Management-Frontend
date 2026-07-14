@@ -179,7 +179,7 @@ export default function DashboardPage() {
 
   const stats = [
     { label: "ACTIVE", value: statsData?.active ?? 0, icon: PiLightning, color: "bg-blue-100 text-blue-600", borderColor: "border-transparent" },
-    { label: "COMPLETED", value: statsData?.completed ?? 0, icon: PiShieldCheck, color: "bg-orange-100 text-orange-600", borderColor: "border-transparent" },
+    { label: "COMPLETED", value: statsData?.completed ?? 0, icon: PiShieldCheck, color: "bg-emerald-100 text-emerald-600", borderColor: "border-transparent" },
     { label: "FAILED", value: statsData?.failed ?? 0, icon: PiWarningCircle, color: "bg-red-100 text-red-600", borderColor: "border-transparent" },
     { label: "CANCELLED", value: statsData?.cancelled ?? 0, icon: PiProhibit, color: "bg-slate-100 text-slate-600", borderColor: "border-transparent" },
   ];
@@ -372,18 +372,25 @@ export default function DashboardPage() {
               className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-xl transition-all duration-100 flex flex-col"
             >
               {/* Top row */}
-              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
+              <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
+                <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md h-fit">
                   {shortId}
                 </span>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
-                  {req.status === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
-                  {req.status === "FAILED" && <AlertCircle size={10} />}
-                  {req.status === "QUEUED" && <Clock size={10} />}
-                  {req.status === "COMPLETED" && <CheckCircle size={10} />}
-                  {req.status === "CANCELLED" && <XCircle size={10} />}
-                  {req.status}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
+                    {req.status === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
+                    {req.status === "FAILED" && <AlertCircle size={10} />}
+                    {req.status === "QUEUED" && <Clock size={10} />}
+                    {req.status === "COMPLETED" && <CheckCircle size={10} />}
+                    {req.status === "CANCELLED" && <XCircle size={10} />}
+                    {req.status}
+                  </span>
+                  {["COMPLETED", "FAILED", "CANCELLED"].includes(req.status) ? null : req.requeueCount === 0 ? (
+                    <span className="text-[9px] font-bold text-emerald-500 uppercase px-1">New</span>
+                  ) : (
+                    <span className="text-[9px] font-bold text-orange-500 uppercase px-1">Requeued: {req.requeueCount}</span>
+                  )}
+                </div>
               </div>
 
               {/* Title & Desc */}
@@ -396,17 +403,18 @@ export default function DashboardPage() {
               <div className="mt-6 pt-4 border-t border-border/50">
                 <div className="flex justify-between items-center mb-2 text-xs font-semibold">
                   <span className="text-muted-foreground">
-                    {type === "progress" ? "Progress" : type === "wait" ? "Status" : type === "runtime" ? "Status" : "Error"}
+                    {type === "progress" ? "Progress" : type === "wait" ? "Status" : type === "runtime" ? "Status" : "Status"}
                   </span>
                   <span className={type === "error" ? "text-red-600" : type === "progress" ? "text-indigo-600" : "text-foreground"}>
-                    {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : "Done"}
+                    {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : req.status === "CANCELLED" ? "Cancelled" : "Done"}
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${type === "error" ? "bg-red-500" :
                       type === "progress" ? "bg-indigo-600" :
-                        type === "runtime" ? "bg-slate-700" : "bg-slate-300"
+                        req.status === "COMPLETED" ? "bg-emerald-500" :
+                          type === "runtime" ? "bg-slate-700" : "bg-slate-300"
                       }`}
                     style={{ width: `${type === "progress" ? req.progress : type === "error" ? 100 : type === "runtime" ? 100 : 0}%` }}
                   />

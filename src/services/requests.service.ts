@@ -36,4 +36,19 @@ export const RequestsService = {
     const response = await api.post('/requests', data);
     return response.data.data;
   },
+
+  approveRequest: async (id: string): Promise<ServiceRequest> => {
+    const response = await api.patch(`/requests/${id}/approve`);
+    return response.data.data;
+  },
+
+  rejectRequest: async (id: string, reviewComment: string): Promise<ServiceRequest> => {
+    const response = await api.patch(`/requests/${id}/reject`, { reviewComment });
+    return response.data.data;
+  },
+
+  cancelRequest: async (id: string): Promise<ServiceRequest> => {
+    const response = await api.patch(`/requests/${id}/cancel`);
+    return response.data.data;
+  },
 };

@@ -7,11 +7,22 @@ import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
 import { useSearchStore } from "@/store/search.store";
 import { useSocketStore } from "@/store/socket.store";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function SupervisorDashboardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [statsData, setStatsData] = useState<RequestStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Review state
+  const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   const { query } = useSearchStore();
 
@@ -19,9 +30,9 @@ export default function SupervisorDashboardPage() {
     if (!query) return true;
     const lowerQ = query.toLowerCase();
     const shortId = `req-${req.id.substring(0, 8).toLowerCase()}`;
-    return req.title.toLowerCase().includes(lowerQ) || 
-           req.status.toLowerCase().includes(lowerQ) ||
-           shortId.includes(lowerQ);
+    return req.title.toLowerCase().includes(lowerQ) ||
+      req.status.toLowerCase().includes(lowerQ) ||
+      shortId.includes(lowerQ);
   });
 
   useEffect(() => {
@@ -89,7 +100,7 @@ export default function SupervisorDashboardPage() {
 
   const stats = [
     { label: "TOTAL ACTIVE", value: statsData?.active ?? 0, icon: PiLightning, color: "bg-blue-100 text-blue-600", borderColor: "border-transparent" },
-    { label: "ALL COMPLETED", value: statsData?.completed ?? 0, icon: PiShieldCheck, color: "bg-orange-100 text-orange-600", borderColor: "border-transparent" },
+    { label: "ALL COMPLETED", value: statsData?.completed ?? 0, icon: PiShieldCheck, color: "bg-emerald-100 text-emerald-600", borderColor: "border-transparent" },
     { label: "TOTAL FAILURES", value: statsData?.failed ?? 0, icon: PiWarningCircle, color: "bg-red-100 text-red-600", borderColor: "border-transparent" },
     { label: "TOTAL CANCELLED", value: statsData?.cancelled ?? 0, icon: PiProhibit, color: "bg-slate-100 text-slate-600", borderColor: "border-transparent" },
   ];
@@ -115,6 +126,59 @@ export default function SupervisorDashboardPage() {
     if (status === "COMPLETED" || status === "CANCELLED") return "runtime";
     if (status === "QUEUED") return "wait";
     return "progress";
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+    setIsActionLoading(true);
+    setActionError("");
+    try {
+      await RequestsService.approveRequest(selectedRequest.id);
+      setIsReviewOpen(false);
+      setReviewComment("");
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setActionError(error.response?.data?.message || "Failed to approve request.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedRequest) return;
+    if (!reviewComment.trim()) {
+      setActionError("Please provide a review comment for rejection.");
+      return;
+    }
+    setIsActionLoading(true);
+    setActionError("");
+    try {
+      await RequestsService.rejectRequest(selectedRequest.id, reviewComment);
+      setIsReviewOpen(false);
+      setReviewComment("");
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setActionError(error.response?.data?.message || "Failed to reject request.");
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedRequest) return;
+    setIsActionLoading(true);
+    setActionError("");
+    try {
+      await RequestsService.cancelRequest(selectedRequest.id);
+      setIsReviewOpen(false);
+      setIsCancelConfirmOpen(false);
+      setReviewComment("");
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setActionError(error.response?.data?.message || "Failed to cancel request.");
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   return (
@@ -176,18 +240,25 @@ export default function SupervisorDashboardPage() {
               className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer"
             >
               {/* Top row */}
-              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-                <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
+              <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
+                <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md h-fit">
                   {shortId}
                 </span>
-                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
-                  {req.status === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
-                  {req.status === "FAILED" && <AlertCircle size={10} />}
-                  {req.status === "QUEUED" && <Clock size={10} />}
-                  {req.status === "COMPLETED" && <CheckCircle size={10} />}
-                  {req.status === "CANCELLED" && <XCircle size={10} />}
-                  {req.status}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
+                    {req.status === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
+                    {req.status === "FAILED" && <AlertCircle size={10} />}
+                    {req.status === "QUEUED" && <Clock size={10} />}
+                    {req.status === "COMPLETED" && <CheckCircle size={10} />}
+                    {req.status === "CANCELLED" && <XCircle size={10} />}
+                    {req.status}
+                  </span>
+                  {["COMPLETED", "FAILED", "CANCELLED"].includes(req.status) ? null : req.requeueCount === 0 ? (
+                    <span className="text-[9px] font-bold text-emerald-500 uppercase px-1">New</span>
+                  ) : (
+                    <span className="text-[9px] font-bold text-orange-500 uppercase px-1">Requeued: {req.requeueCount}</span>
+                  )}
+                </div>
               </div>
 
               {/* Title & Desc */}
@@ -200,27 +271,167 @@ export default function SupervisorDashboardPage() {
               <div className="mt-6 pt-4 border-t border-border/50">
                 <div className="flex justify-between items-center mb-2 text-xs font-semibold">
                   <span className="text-muted-foreground">
-                    {type === "progress" ? "Progress" : type === "wait" ? "Status" : type === "runtime" ? "Status" : "Error"}
+                    {type === "progress" ? "Progress" : type === "wait" ? "Status" : type === "runtime" ? "Status" : "Satus"}
                   </span>
                   <span className={type === "error" ? "text-red-600" : type === "progress" ? "text-indigo-600" : "text-foreground"}>
-                    {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : "Done"}
+                    {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : req.status === "CANCELLED" ? "Cancelled" : "Done"}
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${type === "error" ? "bg-red-500" :
                       type === "progress" ? "bg-indigo-600" :
-                        type === "runtime" ? "bg-slate-700" : "bg-slate-300"
+                        req.status === "COMPLETED" ? "bg-emerald-500" :
+                          type === "runtime" ? "bg-slate-700" : "bg-slate-300"
                       }`}
                     style={{ width: `${type === "progress" ? req.progress : type === "error" ? 100 : type === "runtime" ? 100 : 0}%` }}
                   />
                 </div>
               </div>
+
+              {/* Review Button */}
+              {req.status === "READY_FOR_REVIEW" && (
+                <Button
+                  className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95 duration-200"
+                  onClick={(e) => {
+                    e.stopPropagation(); // prevent card click if any
+                    setSelectedRequest(req);
+                    setReviewComment("");
+                    setActionError("");
+                    setIsReviewOpen(true);
+                  }}
+                >
+                  Go For Review
+                </Button>
+              )}
             </motion.div>
           );
         })}
       </div>
 
+      {/* Review Dialog */}
+      <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
+        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-6 py-6 text-white">
+            <DialogTitle className="text-xl font-bold tracking-tight">Review Request</DialogTitle>
+            <DialogDescription className="text-indigo-100 mt-1.5 text-xs leading-relaxed">
+              Review the details below and take appropriate action.
+            </DialogDescription>
+          </div>
+
+          {selectedRequest && (
+            <div className="px-6 py-5 space-y-5 bg-card">
+              <div>
+                <h4 className="text-sm font-semibold text-foreground/80 mb-1">Request Title</h4>
+                <p className="text-base font-medium text-foreground">{selectedRequest.title}</p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-foreground/80 mb-1">Description</h4>
+                <div className="bg-secondary/30 p-3 rounded-xl border border-border/50 text-sm text-foreground/90 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                  {selectedRequest.description}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground/80 mb-1">Priority</h4>
+                  <span className="text-[11px] font-bold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md border border-slate-200 shadow-sm">
+                    {selectedRequest.priority}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground/80 mb-1">Requeue Count</h4>
+                  <span className="text-[11px] font-bold px-2.5 py-1 bg-orange-50 text-orange-700 rounded-md border border-orange-200 shadow-sm">
+                    {selectedRequest.requeueCount} / 3
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-foreground/80 mb-2">Review Comment <span className="text-muted-foreground font-normal">(Required for Reject)</span></h4>
+                <Textarea
+                  placeholder="Enter a reason if you plan to reject..."
+                  className="resize-none rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 focus-visible:ring-offset-0 border-border/50 shadow-inner min-h-[80px]"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                />
+              </div>
+
+              {actionError && (
+                <div className="text-red-600 text-[13px] font-medium bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2">
+                  <AlertCircle size={14} className="shrink-0" />
+                  {actionError}
+                </div>
+              )}
+
+              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 mt-2 border-t border-border/50">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsReviewOpen(false)}
+                  disabled={isActionLoading}
+                  className="rounded-xl border-slate-300 hover:bg-slate-100 text-slate-700 font-medium sm:w-1/4"
+                >
+                  Back
+                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-3/4 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCancelConfirmOpen(true)}
+                    disabled={isActionLoading}
+                    className="rounded-xl border-red-200 hover:bg-red-50 text-red-600 font-medium w-full sm:w-auto"
+                  >
+                    Cancel Request
+                  </Button>
+                  <Button
+                    onClick={handleReject}
+                    disabled={isActionLoading}
+                    className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium w-full sm:w-auto shadow-md shadow-amber-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    onClick={handleApprove}
+                    disabled={isActionLoading}
+                    className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium w-full sm:w-auto shadow-md shadow-emerald-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    Approve
+                  </Button>
+                </div>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl">
+          <DialogTitle className="text-xl font-bold text-red-600 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" /> Warning
+          </DialogTitle>
+          <DialogDescription className="text-base text-foreground mt-2">
+            Are you sure you want to cancel this request? If you cancel, the request will no longer be processed.
+          </DialogDescription>
+          <DialogFooter className="mt-6 flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsCancelConfirmOpen(false)}
+              className="rounded-xl border-slate-300 hover:bg-slate-100 w-full"
+              disabled={isActionLoading}
+            >
+              No, Keep it
+            </Button>
+            <Button
+              onClick={handleCancel}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white w-full shadow-md shadow-red-200"
+              disabled={isActionLoading}
+            >
+              {isActionLoading ? "Cancelling..." : "Yes, Cancel it"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
