@@ -10,6 +10,7 @@ import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-i
 import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
 import { useSearchStore } from "@/store/search.store";
+import { useSocketStore } from "@/store/socket.store";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +106,52 @@ export default function DashboardPage() {
     window.addEventListener("popstate", checkQuery);
     return () => window.removeEventListener("popstate", checkQuery);
   }, []);
+
+  const { socket } = useSocketStore();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCreated = (req: ServiceRequest) => {
+      setRequests((prev) => {
+        // Prevent duplicate addition
+        if (prev.some(r => r.id === req.id)) return prev;
+        return [req, ...prev];
+      });
+      RequestsService.getStats().then(setStatsData);
+    };
+
+    const handleUpdated = (req: ServiceRequest) => {
+      setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, ...req } : r));
+      RequestsService.getStats().then(setStatsData);
+    };
+
+    const handleProgress = (data: { requestId: string; progress: number }) => {
+      setRequests((prev) => prev.map((r) => r.id === data.requestId ? { ...r, progress: data.progress } : r));
+    };
+
+    socket.on("requestCreated", handleCreated);
+    socket.on("requestQueued", handleUpdated);
+    socket.on("requestProcessing", handleUpdated);
+    socket.on("requestReadyForReview", handleUpdated);
+    socket.on("requestCompleted", handleUpdated);
+    socket.on("requestFailed", handleUpdated);
+    socket.on("requestCancelled", handleUpdated);
+    socket.on("requestRequeued", handleUpdated);
+    socket.on("requestProgressUpdated", handleProgress);
+
+    return () => {
+      socket.off("requestCreated", handleCreated);
+      socket.off("requestQueued", handleUpdated);
+      socket.off("requestProcessing", handleUpdated);
+      socket.off("requestReadyForReview", handleUpdated);
+      socket.off("requestCompleted", handleUpdated);
+      socket.off("requestFailed", handleUpdated);
+      socket.off("requestCancelled", handleUpdated);
+      socket.off("requestRequeued", handleUpdated);
+      socket.off("requestProgressUpdated", handleProgress);
+    };
+  }, [socket]);
 
   const onSubmit = async (data: RequestFormValues) => {
     setIsSubmitting(true);

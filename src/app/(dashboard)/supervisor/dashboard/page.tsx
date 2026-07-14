@@ -6,6 +6,7 @@ import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-i
 import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
 import { useSearchStore } from "@/store/search.store";
+import { useSocketStore } from "@/store/socket.store";
 
 export default function SupervisorDashboardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
@@ -40,6 +41,51 @@ export default function SupervisorDashboardPage() {
     };
     fetchData();
   }, []);
+
+  const { socket } = useSocketStore();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCreated = (req: ServiceRequest) => {
+      setRequests((prev) => {
+        if (prev.some(r => r.id === req.id)) return prev;
+        return [req, ...prev];
+      });
+      RequestsService.getStats().then(setStatsData);
+    };
+
+    const handleUpdated = (req: ServiceRequest) => {
+      setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, ...req } : r));
+      RequestsService.getStats().then(setStatsData);
+    };
+
+    const handleProgress = (data: { requestId: string; progress: number }) => {
+      setRequests((prev) => prev.map((r) => r.id === data.requestId ? { ...r, progress: data.progress } : r));
+    };
+
+    socket.on("requestCreated", handleCreated);
+    socket.on("requestQueued", handleUpdated);
+    socket.on("requestProcessing", handleUpdated);
+    socket.on("requestReadyForReview", handleUpdated);
+    socket.on("requestCompleted", handleUpdated);
+    socket.on("requestFailed", handleUpdated);
+    socket.on("requestCancelled", handleUpdated);
+    socket.on("requestRequeued", handleUpdated);
+    socket.on("requestProgressUpdated", handleProgress);
+
+    return () => {
+      socket.off("requestCreated", handleCreated);
+      socket.off("requestQueued", handleUpdated);
+      socket.off("requestProcessing", handleUpdated);
+      socket.off("requestReadyForReview", handleUpdated);
+      socket.off("requestCompleted", handleUpdated);
+      socket.off("requestFailed", handleUpdated);
+      socket.off("requestCancelled", handleUpdated);
+      socket.off("requestRequeued", handleUpdated);
+      socket.off("requestProgressUpdated", handleProgress);
+    };
+  }, [socket]);
 
   const stats = [
     { label: "TOTAL ACTIVE", value: statsData?.active ?? 0, icon: PiLightning, color: "bg-blue-100 text-blue-600", borderColor: "border-transparent" },
