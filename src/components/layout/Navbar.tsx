@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { useSearchStore } from "@/store/search.store";
 import { useSocketInit } from "@/hooks/useSocketInit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, Search, User } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function Navbar() {
   useSocketInit();
-  
+
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const router = useRouter();

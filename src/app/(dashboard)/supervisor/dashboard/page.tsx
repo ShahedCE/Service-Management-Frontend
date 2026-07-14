@@ -96,11 +96,16 @@ export default function SupervisorDashboardPage() {
 
   const getStatusStyle = (status: string) => {
     switch (status) {
-      case "PROCESSING": return "bg-indigo-100 text-indigo-700";
-      case "QUEUED": return "bg-slate-100 text-slate-700";
-      case "COMPLETED": return "bg-slate-50 text-slate-700";
-      case "FAILED": return "bg-red-100 text-red-700";
-      case "CANCELLED": return "bg-slate-100 text-slate-600";
+      case "PENDING": return "bg-gray-100 text-gray-800";
+      case "QUEUED": return "bg-blue-100 text-blue-800";
+      case "PROCESSING": return "bg-amber-100 text-amber-800";
+      case "READY_FOR_REVIEW": return "bg-purple-100 text-purple-800";
+      case "APPROVED": return "bg-emerald-100 text-emerald-800";
+      case "COMPLETED": return "bg-green-100 text-green-800";
+      case "REJECTED": return "bg-red-100 text-red-800";
+      case "REQUEUED": return "bg-orange-100 text-orange-800";
+      case "FAILED": return "bg-red-700 text-white";
+      case "CANCELLED": return "bg-slate-100 text-slate-800";
       default: return "bg-slate-100 text-slate-700";
     }
   };
@@ -171,7 +176,7 @@ export default function SupervisorDashboardPage() {
               className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer"
             >
               {/* Top row */}
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
                 <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md">
                   {shortId}
                 </span>
