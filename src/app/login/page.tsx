@@ -69,6 +69,8 @@ export default function LoginPage() {
         } else {
           router.push("/dashboard");
         }
+      } else {
+        setIsLoading(false);
       }
     } catch (error) {
       console.error("Login error", error);
@@ -76,7 +78,6 @@ export default function LoginPage() {
       setErrorMsg(
         err.response?.data?.message || "Invalid credentials or server error."
       );
-    } finally {
       setIsLoading(false);
     }
   }

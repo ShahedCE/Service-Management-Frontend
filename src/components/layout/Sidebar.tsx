@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, List, Users, Network, LogOut, BarChart3, History, Plus, Headphones } from "lucide-react";
+import { LayoutDashboard, List, Users, Network, LogOut, Plus } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { Button } from "@/components/ui/button";
 
@@ -18,8 +18,6 @@ export const getNavItems = (role: string | undefined) => {
   return [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Service Requests", href: "/requests/my", icon: List },
-    { name: "Analytics", href: "/analytics", icon: BarChart3 },
-    { name: "Logs", href: "/logs", icon: History },
   ];
 };
 
@@ -28,7 +26,7 @@ export function Sidebar() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  
+
   const navItems = getNavItems(user?.role);
 
   const handleLogout = () => {
@@ -53,18 +51,17 @@ export function Sidebar() {
         <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 px-3">
           Overview
         </div>
-        
+
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isActive
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 hover:translate-x-1 ${isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-              }`}
+                }`}
             >
               {isActive && (
                 <motion.div
@@ -87,20 +84,25 @@ export function Sidebar() {
       <div className="p-4 mt-auto border-t border-border/50 flex flex-col gap-4">
         {user?.role !== "SUPERVISOR" && (
           <div className="flex flex-col gap-2">
-            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 shadow-sm font-medium mb-4">
+            <Button
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 shadow-sm shadow-indigo-200 hover:shadow-md font-medium mb-4 transition-all hover:scale-105 active:scale-95 duration-200"
+              onClick={() => {
+                if (pathname === '/dashboard') {
+                  window.history.replaceState({}, '', '/dashboard?new=true');
+                  window.dispatchEvent(new Event('popstate'));
+                } else {
+                  router.push('/dashboard?new=true');
+                }
+              }}
+            >
               <Plus size={18} className="mr-2" />
               New Request
             </Button>
-            
-            <Link href="/support" className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-lg transition-colors">
-              <Headphones size={18} />
-              Support
-            </Link>
           </div>
         )}
 
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-3 px-3 py-2 rounded-lg"
           onClick={handleLogout}
         >

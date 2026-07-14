@@ -5,11 +5,23 @@ import { Clock, CheckCircle, XCircle, RefreshCcw, AlertCircle } from "lucide-rea
 import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-icons/pi";
 import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
+import { useSearchStore } from "@/store/search.store";
 
 export default function SupervisorDashboardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [statsData, setStatsData] = useState<RequestStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const { query } = useSearchStore();
+
+  const filteredRequests = requests.filter(req => {
+    if (!query) return true;
+    const lowerQ = query.toLowerCase();
+    const shortId = `req-${req.id.substring(0, 8).toLowerCase()}`;
+    return req.title.toLowerCase().includes(lowerQ) || 
+           req.status.toLowerCase().includes(lowerQ) ||
+           shortId.includes(lowerQ);
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -95,10 +107,12 @@ export default function SupervisorDashboardPage() {
       {/* Grid of Requests */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading && <div className="col-span-full py-10 text-center text-muted-foreground">Loading requests...</div>}
-        {!loading && requests.length === 0 && (
-          <div className="col-span-full py-10 text-center text-muted-foreground">No requests found.</div>
+        {!loading && filteredRequests.length === 0 && (
+          <div className="col-span-full py-10 text-center text-muted-foreground">
+            {requests.length === 0 ? "No requests found." : "No requests match your search."}
+          </div>
         )}
-        {requests.map((req, i) => {
+        {filteredRequests.map((req, i) => {
           const type = getReqType(req.status);
           const shortId = `#REQ-${req.id.substring(0, 8).toUpperCase()}`;
           return (
@@ -106,8 +120,9 @@ export default function SupervisorDashboardPage() {
               key={req.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
+              whileHover={{ y: -6 }}
               transition={{ delay: 0.2 + (i * 0.05) }}
-              className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-md transition-shadow flex flex-col"
+              className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-xl transition-all duration-300 flex flex-col cursor-pointer"
             >
               {/* Top row */}
               <div className="flex justify-between items-center mb-4">
