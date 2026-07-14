@@ -36,9 +36,9 @@ export const useAuthStore = create<AuthState>((set) => {
     login: (token, user, remember) => {
       const expires = remember ? 7 : undefined;
       
-      Cookies.set('token', token, { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      Cookies.set('user', JSON.stringify(user), { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' });
-      Cookies.set('role', user.role, { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' }); // For middleware routing
+      Cookies.set('token', token, { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
+      Cookies.set('user', JSON.stringify(user), { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
+      Cookies.set('role', user.role, { expires, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' }); // For middleware routing
 
       set({ token, user, isAuthenticated: true });
     },

@@ -28,7 +28,7 @@ import { Card, CardContent } from "@/components/ui/card";
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(1, { message: "Password is required." }),
-  remember: z.boolean(),
+  remember: z.boolean().optional(),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -59,9 +59,9 @@ export default function LoginPage() {
       });
 
       if (response.data?.success) {
-        const { token, user } = response.data.data;
+        const { accessToken: token, user } = response.data.data;
         // Save to Zustand & Cookies
-        login(token, user, data.remember);
+        login(token, user, data.remember || false);
 
         // Let middleware handle the redirect based on role, or we can push manually
         if (user.role === "SUPERVISOR") {

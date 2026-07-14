@@ -15,7 +15,7 @@ export const api = axios.create({
 // Request Interceptor: Attach JWT token if it exists
 api.interceptors.request.use(
   (config) => {
-    const token = Cookies.get('token');
+    const token = Cookies.get('token') || useAuthStore.getState().token;
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -28,6 +28,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error("API Error Interceptor:", {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data
+    });
     if (error.response?.status === 401) {
       // Token is invalid or expired
       useAuthStore.getState().logout();
