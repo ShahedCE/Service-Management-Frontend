@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Clock, CheckCircle, XCircle, RefreshCcw, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCcw, AlertCircle } from "lucide-react";
 import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-icons/pi";
 import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
@@ -10,6 +10,18 @@ import { useSocketStore } from "@/store/socket.store";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const getDisplayStatus = (status: string) => {
+  if (["PENDING", "QUEUED", "REQUEUED"].includes(status)) return "PROCESSING";
+  return status;
+};
 
 export default function SupervisorDashboardPage() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
@@ -23,10 +35,12 @@ export default function SupervisorDashboardPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
   const { query } = useSearchStore();
 
   const filteredRequests = requests.filter(req => {
+    if (statusFilter !== "ALL" && req.status !== statusFilter && getDisplayStatus(req.status) !== statusFilter) return false;
     if (!query) return true;
     const lowerQ = query.toLowerCase();
     const shortId = `req-${req.id.substring(0, 8).toLowerCase()}`;
@@ -106,15 +120,13 @@ export default function SupervisorDashboardPage() {
   ];
 
   const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "PENDING": return "bg-gray-100 text-gray-800";
-      case "QUEUED": return "bg-blue-100 text-blue-800";
+    const s = getDisplayStatus(status);
+    switch (s) {
       case "PROCESSING": return "bg-amber-100 text-amber-800";
       case "READY_FOR_REVIEW": return "bg-purple-100 text-purple-800";
       case "APPROVED": return "bg-emerald-100 text-emerald-800";
       case "COMPLETED": return "bg-green-100 text-green-800";
       case "REJECTED": return "bg-red-100 text-red-800";
-      case "REQUEUED": return "bg-orange-100 text-orange-800";
       case "FAILED": return "bg-red-700 text-white";
       case "CANCELLED": return "bg-slate-100 text-slate-800";
       default: return "bg-slate-100 text-slate-700";
@@ -122,9 +134,9 @@ export default function SupervisorDashboardPage() {
   };
 
   const getReqType = (status: string) => {
-    if (status === "FAILED") return "error";
-    if (status === "COMPLETED" || status === "CANCELLED") return "runtime";
-    if (status === "QUEUED") return "wait";
+    const s = getDisplayStatus(status);
+    if (s === "FAILED") return "error";
+    if (s === "COMPLETED" || s === "CANCELLED") return "runtime";
     return "progress";
   };
 
@@ -219,6 +231,27 @@ export default function SupervisorDashboardPage() {
         ))}
       </div>
 
+      {/* Controls / Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-8 mb-4">
+        <h2 className="text-xl font-bold tracking-tight">Recent Requests</h2>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Filter by:</span>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[200px] rounded-xl bg-card border-border/50">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl border-border/50 shadow-xl max-h-[300px]">
+              <SelectItem value="ALL">All Statuses</SelectItem>
+              <SelectItem value="PROCESSING">Processing</SelectItem>
+              <SelectItem value="READY_FOR_REVIEW">Ready For Review</SelectItem>
+              <SelectItem value="COMPLETED">Completed</SelectItem>
+              <SelectItem value="FAILED">Failed</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Grid of Requests */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loading && <div className="col-span-full py-10 text-center text-muted-foreground">Loading requests...</div>}
@@ -246,12 +279,11 @@ export default function SupervisorDashboardPage() {
                 </span>
                 <div className="flex flex-col items-end gap-1">
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
-                    {req.status === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
-                    {req.status === "FAILED" && <AlertCircle size={10} />}
-                    {req.status === "QUEUED" && <Clock size={10} />}
-                    {req.status === "COMPLETED" && <CheckCircle size={10} />}
-                    {req.status === "CANCELLED" && <XCircle size={10} />}
-                    {req.status}
+                    {getDisplayStatus(req.status) === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
+                    {getDisplayStatus(req.status) === "FAILED" && <AlertCircle size={10} />}
+                    {getDisplayStatus(req.status) === "COMPLETED" && <CheckCircle size={10} />}
+                    {getDisplayStatus(req.status) === "CANCELLED" && <XCircle size={10} />}
+                    {getDisplayStatus(req.status)}
                   </span>
                   {["COMPLETED", "FAILED", "CANCELLED"].includes(req.status) ? null : req.requeueCount === 0 ? (
                     <span className="text-[9px] font-bold text-emerald-500 uppercase px-1">New</span>
@@ -271,7 +303,7 @@ export default function SupervisorDashboardPage() {
               <div className="mt-6 pt-4 border-t border-border/50">
                 <div className="flex justify-between items-center mb-2 text-xs font-semibold">
                   <span className="text-muted-foreground">
-                    {type === "progress" ? "Progress" : type === "wait" ? "Status" : type === "runtime" ? "Status" : "Satus"}
+                    {type === "progress" ? "Progress" : "Status"}
                   </span>
                   <span className={type === "error" ? "text-red-600" : type === "progress" ? "text-indigo-600" : "text-foreground"}>
                     {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : req.status === "CANCELLED" ? "Cancelled" : "Done"}
