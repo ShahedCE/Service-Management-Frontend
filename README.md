@@ -42,8 +42,8 @@ Powered by Socket.io, the platform includes a highly integrated chat system to f
 2. **Environment Variables:**
    Create a `.env.local` file in the root directory and configure your backend API and Socket endpoints:
    ```env
-   NEXT_PUBLIC_API_URL=http://localhost:3000
-   NEXT_PUBLIC_SOCKET_URL=http://localhost:3000
+   NEXT_PUBLIC_API_URL=http://localhost:4000
+   NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
    ```
 
 3. **Run the Development Server:**
@@ -52,7 +52,7 @@ Powered by Socket.io, the platform includes a highly integrated chat system to f
    ```
 
 4. **Access the Application:**
-   Open [http://localhost:3001](http://localhost:3001) in your browser. *(The port defaults to 3000 if unoccupied, but typically runs on 3001 if the backend runs on 3000).*
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 *This project is optimized for modern browsers and relies on real-time WebSocket connections for the best user experience.*
