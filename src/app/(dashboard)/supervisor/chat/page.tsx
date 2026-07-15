@@ -85,9 +85,9 @@ export default function SupervisorChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex gap-4 p-4">
+    <div className="h-[calc(100vh-6rem)] flex gap-4 p-2 md:p-4">
       {/* Sidebar: Active Chats */}
-      <div className="w-1/3 max-w-sm bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+      <div className={`${selectedOperatorId ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 md:max-w-sm bg-white rounded-xl shadow-sm border border-gray-100 flex-col overflow-hidden`}>
         <div className="p-4 border-b border-gray-100 bg-gray-50/50">
           <h2 className="font-semibold text-gray-800">Active Conversations</h2>
         </div>
@@ -118,11 +118,20 @@ export default function SupervisorChatPage() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+      <div className={`${selectedOperatorId ? 'flex' : 'hidden md:flex'} flex-1 bg-white rounded-xl shadow-sm border border-gray-100 flex-col overflow-hidden`}>
         {selectedOperatorId ? (
           <>
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+              <button 
+                onClick={() => setSelectedOperatorId(null)} 
+                className="md:hidden p-2 -ml-2 rounded-full hover:bg-gray-200 text-gray-600 transition-colors"
+                title="Back to chat list"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
               <h2 className="font-semibold text-gray-800">
                 {activeChats.find(c => c.operator.id === selectedOperatorId)?.operator.name || 'Operator'}
               </h2>
@@ -159,22 +168,23 @@ export default function SupervisorChatPage() {
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSend} className="p-4 border-t border-gray-100 bg-white flex gap-3 items-end">
+            {/* Input Form */}
+            <form onSubmit={handleSend} className="p-3 md:p-4 border-t border-gray-100 bg-white flex gap-2 md:gap-3 items-end">
               <textarea
                 value={content}
                 onChange={handleContentChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a message..."
                 rows={1}
-                className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none min-h-[40px] max-h-[120px]"
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 md:px-5 md:py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none min-h-[40px] max-h-[120px]"
               />
               <button
                 type="submit"
                 disabled={!content.trim()}
-                className="bg-blue-600 text-white px-6 py-2.5 rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors shadow-sm font-medium text-sm flex items-center justify-center gap-2"
+                className="bg-blue-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors shadow-sm font-medium text-sm flex items-center justify-center gap-2 shrink-0 min-w-[40px] md:min-w-0"
               >
-                Send
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span className="hidden md:inline">Send</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                 </svg>
               </button>
