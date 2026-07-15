@@ -12,7 +12,7 @@ export const getNavItems = (role: string | undefined) => {
   if (role === "SUPERVISOR") {
     return [
       { name: "Dashboard", href: "/supervisor/dashboard", icon: LayoutDashboard },
-      { name: "Team Management", href: "/supervisor/users", icon: Users },
+      { name: "Operator Management", href: "/supervisor/users", icon: Users },
       { name: "Messages", href: "/supervisor/chat", icon: MessageSquare },
     ];
   }

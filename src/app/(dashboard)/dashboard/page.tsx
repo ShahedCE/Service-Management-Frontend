@@ -5,10 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, RefreshCcw, AlertCircle, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCcw, AlertCircle, Plus, ChevronLeft, ChevronRight, Pencil, Clock } from "lucide-react";
 import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-icons/pi";
 import { motion } from "framer-motion";
-import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
+import { RequestsService, ServiceRequest, RequestStats, StatusHistory } from "@/services/requests.service";
+import { useAuthStore } from "@/store/auth.store";
 import { useSearchStore } from "@/store/search.store";
 import { useSocketStore } from "@/store/socket.store";
 import {
@@ -58,6 +59,22 @@ export default function DashboardPage() {
   // Modal states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit modal states
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editRequest, setEditRequest] = useState<ServiceRequest | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // History modal states
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<StatusHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyRequestId, setHistoryRequestId] = useState("");
+
+  const { user } = useAuthStore();
 
   const { query } = useSearchStore();
 
@@ -201,6 +218,51 @@ export default function DashboardPage() {
       alert("Failed to create request");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEditOpen = (req: ServiceRequest) => {
+    setEditRequest(req);
+    setEditTitle(req.title);
+    setEditDescription(req.description);
+    setEditError("");
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editRequest) return;
+    if (!editTitle.trim() || !editDescription.trim()) {
+      setEditError("Title and description are required.");
+      return;
+    }
+    setIsEditSubmitting(true);
+    setEditError("");
+    try {
+      const updated = await RequestsService.updateRequest(editRequest.id, {
+        title: editTitle,
+        description: editDescription,
+      });
+      setRequests((prev) => prev.map((r) => r.id === updated.id ? { ...r, ...updated } : r));
+      setIsEditOpen(false);
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setEditError(error.response?.data?.message || "Failed to update request.");
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  };
+
+  const handleHistoryOpen = async (reqId: string) => {
+    setHistoryRequestId(reqId);
+    setHistoryLoading(true);
+    setIsHistoryOpen(true);
+    try {
+      const data = await RequestsService.getHistory(reqId);
+      setHistoryData(data);
+    } catch {
+      setHistoryData([]);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -469,6 +531,28 @@ export default function DashboardPage() {
                   />
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="mt-4 flex gap-2">
+                {user && ["PENDING", "QUEUED"].includes(req.status) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => { e.stopPropagation(); handleEditOpen(req); }}
+                    className="rounded-xl text-xs font-medium gap-1.5 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                  >
+                    <Pencil size={12} /> Edit
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); handleHistoryOpen(req.id); }}
+                  className="rounded-xl text-xs font-medium gap-1.5 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                >
+                  <Clock size={12} /> History
+                </Button>
+              </div>
             </motion.div>
           );
         })}
@@ -510,6 +594,102 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Edit Request Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-6 py-6 text-white">
+            <DialogTitle className="text-xl font-bold tracking-tight">Edit Request</DialogTitle>
+            <DialogDescription className="text-indigo-100 mt-1.5 text-xs leading-relaxed">
+              Update the title or description of your request.
+            </DialogDescription>
+          </div>
+          <div className="px-6 py-5 space-y-5 bg-card">
+            <div>
+              <label className="text-sm font-semibold text-foreground/80 mb-2 block">Title</label>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="h-11 rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 border-border/50"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-foreground/80 mb-2 block">Description</label>
+              <Textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                className="min-h-[100px] rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 border-border/50 resize-none"
+              />
+            </div>
+            {editError && (
+              <div className="text-red-600 text-[13px] font-medium bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                {editError}
+              </div>
+            )}
+            <div className="pt-4 flex justify-end gap-3 border-t border-border/50">
+              <Button variant="ghost" onClick={() => setIsEditOpen(false)} className="rounded-xl font-medium">Cancel</Button>
+              <Button
+                onClick={handleEditSubmit}
+                disabled={isEditSubmitting}
+                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 shadow-md"
+              >
+                {isEditSubmitting ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Status History Dialog */}
+      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-6 py-6 text-white">
+            <DialogTitle className="text-xl font-bold tracking-tight">Status History</DialogTitle>
+            <DialogDescription className="text-slate-300 mt-1.5 text-xs leading-relaxed">
+              Complete audit trail for #{historyRequestId.substring(0, 8).toUpperCase()}
+            </DialogDescription>
+          </div>
+          <div className="px-6 py-5 bg-card max-h-[400px] overflow-y-auto">
+            {historyLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading history...</div>
+            ) : historyData.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No history found.</div>
+            ) : (
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-200" />
+                <div className="space-y-5">
+                  {historyData.map((entry) => (
+                    <div key={entry.id} className="flex gap-4 relative">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-indigo-400 flex items-center justify-center shrink-0 z-10">
+                        <Clock size={14} className="text-indigo-600" />
+                      </div>
+                      <div className="flex-1 bg-secondary/30 rounded-xl p-3 border border-border/50">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          {entry.oldStatus && (
+                            <>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{entry.oldStatus}</span>
+                              <span className="text-muted-foreground text-xs">→</span>
+                            </>
+                          )}
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">{entry.newStatus}</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                          <span>By: <strong className="text-foreground">{entry.changedBy?.name || entry.changedByType}</strong></span>
+                          <span>{new Date(entry.changedAt).toLocaleString()}</span>
+                        </div>
+                        {entry.comment && (
+                          <p className="text-xs text-amber-950 mt-2 italic bg-amber-100/80 border border-amber-200 p-2 rounded-lg">&quot;{entry.comment}&quot;</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

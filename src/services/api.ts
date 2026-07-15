@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import { useAuthStore } from '../store/auth.store';
 
 // We use an environment variable or default to localhost:3000 (Docker backend mapping)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export const api = axios.create({
   baseURL: API_URL,

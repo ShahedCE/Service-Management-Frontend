@@ -86,6 +86,7 @@ export default function OperatorManagementPage() {
   }, []);
 
   const filteredUsers = users.filter((u) => {
+    if (u.role !== "OPERATOR") return false;
     if (statusFilter === "ACTIVE" && !u.isActive) return false;
     if (statusFilter === "INACTIVE" && u.isActive) return false;
     

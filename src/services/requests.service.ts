@@ -21,6 +21,16 @@ export interface RequestStats {
   cancelled: number;
 }
 
+export interface StatusHistory {
+  id: string;
+  oldStatus: string | null;
+  newStatus: string;
+  changedByType: string;
+  comment: string | null;
+  changedAt: string;
+  changedBy?: { id: string; name: string; email: string } | null;
+}
+
 export const RequestsService = {
   getRequests: async (): Promise<ServiceRequest[]> => {
     const response = await api.get('/requests?limit=1000&sortBy=createdAt&order=DESC');
@@ -34,6 +44,16 @@ export const RequestsService = {
 
   createRequest: async (data: { title: string; description: string; priority: string }): Promise<ServiceRequest> => {
     const response = await api.post('/requests', data);
+    return response.data.data;
+  },
+
+  updateRequest: async (id: string, data: { title?: string; description?: string }): Promise<ServiceRequest> => {
+    const response = await api.patch(`/requests/${id}`, data);
+    return response.data.data;
+  },
+
+  getHistory: async (id: string): Promise<StatusHistory[]> => {
+    const response = await api.get(`/requests/${id}/history`);
     return response.data.data;
   },
 

@@ -7,7 +7,7 @@ interface SocketState {
   disconnect: () => void;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3000';
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000';
 
 export const useSocketStore = create<SocketState>((set, get) => ({
   socket: null,
