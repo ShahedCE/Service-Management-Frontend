@@ -15,6 +15,8 @@ interface ChatState {
   setChatOpen: (isOpen: boolean) => void;
   setSelectedOperatorId: (operatorId: string | null) => void;
   clearUnread: (operatorId: string) => void;
+  typingStatus: Record<string, boolean>;
+  setTypingStatus: (operatorId: string, isTyping: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -23,8 +25,16 @@ export const useChatStore = create<ChatState>((set) => ({
   unreadCounts: {},
   isChatOpen: false,
   selectedOperatorId: null,
+  typingStatus: {},
 
   setActiveChats: (chats) => set({ activeChats: chats }),
+  setTypingStatus: (operatorId, isTyping) =>
+    set((state) => ({
+      typingStatus: {
+        ...state.typingStatus,
+        [operatorId]: isTyping,
+      },
+    })),
 
   setMessages: (operatorId, messages) => 
     set((state) => ({

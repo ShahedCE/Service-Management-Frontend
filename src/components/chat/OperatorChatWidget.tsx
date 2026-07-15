@@ -8,10 +8,11 @@ import { getChatHistory } from '../../services/chat.service';
 
 export const OperatorChatWidget = () => {
   const { user } = useAuthStore();
-  const { messages, setMessages, isChatOpen, setChatOpen, unreadCounts, clearUnread } = useChatStore();
-  const { sendMessage } = useChatSocket();
+  const { messages, setMessages, isChatOpen, setChatOpen, unreadCounts, clearUnread, typingStatus } = useChatStore();
+  const { sendMessage, emitTyping } = useChatSocket();
   const [content, setContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const operatorId = user?.id;
 
@@ -42,6 +43,19 @@ export const OperatorChatWidget = () => {
 
     sendMessage(operatorId, content);
     setContent('');
+    emitTyping(operatorId, false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  };
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    if (operatorId) {
+      emitTyping(operatorId, true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        emitTyping(operatorId, false);
+      }, 2000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -88,6 +102,15 @@ export const OperatorChatWidget = () => {
                 </div>
               );
             })}
+            {operatorId && typingStatus[operatorId] && (
+              <div className="flex justify-start mt-2">
+                <div className="bg-white text-gray-500 border border-gray-100 rounded-lg rounded-tl-none px-4 py-3 shadow-sm inline-flex items-center gap-1.5 h-10">
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -96,7 +119,7 @@ export const OperatorChatWidget = () => {
           <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-100 rounded-b-lg flex gap-2 items-end">
             <textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={handleContentChange}
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
               rows={1}

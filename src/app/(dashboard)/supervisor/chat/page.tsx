@@ -17,11 +17,13 @@ export default function SupervisorChatPage() {
     setSelectedOperatorId,
     unreadCounts,
     clearUnread,
+    typingStatus,
   } = useChatStore();
 
-  const { sendMessage } = useChatSocket();
+  const { sendMessage, emitTyping } = useChatSocket();
   const [content, setContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Fetch active chats initially
@@ -55,6 +57,19 @@ export default function SupervisorChatPage() {
 
     sendMessage(selectedOperatorId, content);
     setContent('');
+    emitTyping(selectedOperatorId, false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  };
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+    if (selectedOperatorId) {
+      emitTyping(selectedOperatorId, true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        emitTyping(selectedOperatorId, false);
+      }, 2000);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -131,6 +146,15 @@ export default function SupervisorChatPage() {
                   </div>
                 );
               })}
+              {selectedOperatorId && typingStatus[selectedOperatorId] && (
+                <div className="flex justify-start mt-2">
+                  <div className="bg-white text-gray-500 border border-gray-100 rounded-lg rounded-tl-none px-4 py-3 shadow-sm inline-flex items-center gap-1.5 h-10">
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -138,7 +162,7 @@ export default function SupervisorChatPage() {
             <form onSubmit={handleSend} className="p-4 border-t border-gray-100 bg-white flex gap-3 items-end">
               <textarea
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={handleContentChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Type a message..."
                 rows={1}
