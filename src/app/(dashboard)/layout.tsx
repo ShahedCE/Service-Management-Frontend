@@ -2,6 +2,7 @@
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Navbar } from "@/components/layout/Navbar";
+import { OperatorChatWidget } from "@/components/chat/OperatorChatWidget";
 import { useAuthStore } from "@/store/auth.store";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,7 @@ export default function DashboardLayout({
 }) {
   const [mounted, setMounted] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
   const router = useRouter();
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export default function DashboardLayout({
           </div>
         </main>
       </div>
+      {user?.role === "OPERATOR" && <OperatorChatWidget />}
     </div>
   );
 }

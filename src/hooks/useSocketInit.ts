@@ -4,7 +4,7 @@ import { useSocketStore } from '@/store/socket.store';
 
 export function useSocketInit() {
   const token = useAuthStore((state) => state.token);
-  const { connect, disconnect } = useSocketStore();
+  const { connect, disconnect, socket } = useSocketStore();
 
   useEffect(() => {
     if (token) {
@@ -20,4 +20,6 @@ export function useSocketInit() {
       // Disconnection will happen when token becomes null (logout).
     };
   }, [token, connect, disconnect]);
+
+  return { socket };
 }

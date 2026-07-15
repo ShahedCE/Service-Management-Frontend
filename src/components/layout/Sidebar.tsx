@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Users, Network, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, Users, Network, LogOut, Plus, MessageSquare } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
+import { useChatStore } from "@/store/chat.store";
 import { Button } from "@/components/ui/button";
 
 export const getNavItems = (role: string | undefined) => {
@@ -12,6 +13,7 @@ export const getNavItems = (role: string | undefined) => {
     return [
       { name: "Dashboard", href: "/supervisor/dashboard", icon: LayoutDashboard },
       { name: "Team Management", href: "/supervisor/users", icon: Users },
+      { name: "Messages", href: "/supervisor/chat", icon: MessageSquare },
     ];
   }
   return [
@@ -24,6 +26,8 @@ export function Sidebar() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const unreadCounts = useChatStore((state) => state.unreadCounts);
+  const totalUnread = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
 
   const navItems = getNavItems(user?.role);
 
@@ -72,7 +76,14 @@ export function Sidebar() {
                 </motion.div>
               )}
               <item.icon size={18} className="relative z-10" />
-              <span className="relative z-10">{item.name}</span>
+              <span className="relative z-10 flex flex-1 items-center justify-between">
+                <span>{item.name}</span>
+                {item.name === "Messages" && totalUnread > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">
+                    {totalUnread}
+                  </span>
+                )}
+              </span>
             </Link>
           );
         })}
