@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle, RefreshCcw, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCcw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-icons/pi";
 import { motion } from "framer-motion";
 import { RequestsService, ServiceRequest, RequestStats } from "@/services/requests.service";
@@ -48,6 +48,27 @@ export default function SupervisorDashboardPage() {
       req.status.toLowerCase().includes(lowerQ) ||
       shortId.includes(lowerQ);
   });
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query]);
+
+  const totalItems = filteredRequests.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentRequests = filteredRequests.slice(startIndex, startIndex + itemsPerPage);
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -236,7 +257,10 @@ export default function SupervisorDashboardPage() {
         <h2 className="text-xl font-bold tracking-tight">Recent Requests</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-muted-foreground whitespace-nowrap">Filter by:</span>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(val) => {
+            setStatusFilter(val);
+            setCurrentPage(1);
+          }}>
             <SelectTrigger className="w-full sm:w-[200px] rounded-xl bg-card border-border/50">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -260,7 +284,7 @@ export default function SupervisorDashboardPage() {
             {requests.length === 0 ? "No requests found." : "No requests match your search."}
           </div>
         )}
-        {filteredRequests.map((req, i) => {
+        {currentRequests.map((req, i) => {
           const type = getReqType(req.status);
           const shortId = `#REQ-${req.id.substring(0, 8).toUpperCase()}`;
           return (
@@ -340,6 +364,42 @@ export default function SupervisorDashboardPage() {
           );
         })}
       </div>
+
+      {/* Pagination */}
+      {!loading && totalItems > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 bg-card p-4 rounded-2xl border border-border/50 shadow-sm">
+          <div className="text-sm text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, totalItems)}</span> of <span className="font-semibold text-foreground">{totalItems}</span> requests
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handlePrevPage} disabled={currentPage === 1} className="h-9 w-9 rounded-lg border-border/50 bg-secondary/30">
+              <ChevronLeft size={16} />
+            </Button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                .map((page, index, array) => (
+                  <div key={page} className="flex items-center">
+                    {index > 0 && array[index - 1] !== page - 1 && <span className="px-2 text-muted-foreground">...</span>}
+                    <Button 
+                      variant={page === currentPage ? "default" : "ghost"} 
+                      onClick={() => setCurrentPage(page)} 
+                      className={`h-9 w-9 rounded-lg ${page === currentPage ? "bg-indigo-600 text-white shadow-sm hover:bg-indigo-700" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {page}
+                    </Button>
+                  </div>
+              ))}
+            </div>
+
+            <Button variant="outline" size="icon" onClick={handleNextPage} disabled={currentPage === totalPages} className="h-9 w-9 rounded-lg border-border/50 bg-secondary/30">
+              <ChevronRight size={16} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Review Dialog */}
       <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>

@@ -9,14 +9,14 @@ import { useSearchStore } from "@/store/search.store";
 import { useSocketInit } from "@/hooks/useSocketInit";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LogOut, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
-
+import { useRouter, usePathname } from "next/navigation";
 export function Navbar() {
   useSocketInit();
 
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const router = useRouter();
+  const pathname = usePathname();
 
   const { query, setQuery } = useSearchStore();
 
@@ -34,15 +34,17 @@ export function Navbar() {
           <MobileSidebar />
 
           {/* Search Bar */}
-          <div className="hidden md:flex relative max-w-md w-full ml-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              placeholder="Search by ID, title, or status..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 bg-secondary/50 border-transparent focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full h-10 transition-colors hover:bg-secondary/80 focus:bg-background"
-            />
-          </div>
+          {pathname !== "/supervisor/users" && (
+            <div className="hidden md:flex relative max-w-md w-full ml-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <Input
+                placeholder="Search by ID, title, or status..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full pl-10 bg-secondary/50 border-transparent focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full h-10 transition-colors hover:bg-secondary/80 focus:bg-background"
+              />
+            </div>
+          )}
         </div>
 
         {/* Right Side: Theme, User Profile, Logout */}

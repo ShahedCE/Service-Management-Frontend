@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LayoutDashboard, List, Users, Network, LogOut, Plus } from "lucide-react";
+import { LayoutDashboard, Users, Network, LogOut, Plus } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
 import { Button } from "@/components/ui/button";
 
@@ -11,13 +11,11 @@ export const getNavItems = (role: string | undefined) => {
   if (role === "SUPERVISOR") {
     return [
       { name: "Dashboard", href: "/supervisor/dashboard", icon: LayoutDashboard },
-      { name: "All Requests", href: "/requests/all", icon: List },
-      { name: "Operator Management", href: "/supervisor/users", icon: Users },
+      { name: "Team Management", href: "/supervisor/users", icon: Users },
     ];
   }
   return [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Service Requests", href: "/requests/my", icon: List },
   ];
 };
 
