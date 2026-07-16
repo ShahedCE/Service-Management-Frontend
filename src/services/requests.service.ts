@@ -32,9 +32,9 @@ export interface StatusHistory {
 }
 
 export const RequestsService = {
-  getRequests: async (): Promise<ServiceRequest[]> => {
-    const response = await api.get('/requests?limit=1000&sortBy=createdAt&order=DESC');
-    return response.data.data; // Because response is { success: true, data: [...] }
+  getRequests: async (params?: Record<string, unknown>): Promise<{ data: ServiceRequest[], meta: { totalItems: number, totalPages: number } }> => {
+    const response = await api.get('/requests', { params });
+    return { data: response.data.data, meta: response.data.meta };
   },
 
   getStats: async (): Promise<RequestStats> => {

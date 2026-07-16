@@ -25,9 +25,9 @@ export interface UpdateUserData {
 }
 
 export const UsersService = {
-  getUsers: async (): Promise<User[]> => {
-    const response = await api.get<{ success: boolean; data: User[] }>("/users");
-    return response.data.data;
+  getUsers: async (params?: Record<string, unknown>): Promise<{ data: User[], meta: { totalItems: number, totalPages: number } }> => {
+    const response = await api.get("/users", { params });
+    return { data: response.data.data, meta: response.data.meta };
   },
 
   createUser: async (data: CreateUserData): Promise<User> => {

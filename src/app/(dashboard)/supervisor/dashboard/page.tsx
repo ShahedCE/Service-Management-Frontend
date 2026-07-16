@@ -23,40 +23,20 @@ import { RequestHistoryModal } from "@/components/requests/RequestHistoryModal";
 import { ReviewRequestModal } from "@/components/requests/ReviewRequestModal";
 import { CancelRequestModal } from "@/components/requests/CancelRequestModal";
 
-const getDisplayStatus = (status: string) => {
-  if (["PENDING", "QUEUED", "REQUEUED"].includes(status)) return "PROCESSING";
-  return status;
-};
+
 
 export default function SupervisorDashboardPage() {
-  // SWR for data fetching
-  const { data: requests = [], isLoading: loadingRequests } = useSWR("/requests", RequestsService.getRequests);
-  const { data: statsData, isLoading: loadingStats } = useSWR("/requests/stats", RequestsService.getStats);
-
   const [statusFilter, setStatusFilter] = useState("ALL");
 
   // Modal states
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequest | null>(null);
-
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-
   const [historyRequestId, setHistoryRequestId] = useState("");
 
   const { query } = useSearchStore();
 
-  const filteredRequests = requests.filter((req: ServiceRequest) => {
-    if (statusFilter !== "ALL" && req.status !== statusFilter && getDisplayStatus(req.status) !== statusFilter) return false;
-    if (!query) return true;
-    const lowerQ = query.toLowerCase();
-    const shortId = `req-${req.id.substring(0, 8).toLowerCase()}`;
-    return req.title.toLowerCase().includes(lowerQ) ||
-      req.status.toLowerCase().includes(lowerQ) ||
-      shortId.includes(lowerQ);
-  });
-
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
@@ -64,10 +44,32 @@ export default function SupervisorDashboardPage() {
     setCurrentPage(1);
   }, [query]);
 
-  const totalItems = filteredRequests.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  // SWR for data fetching
+  const { data: response, isLoading: loadingRequests } = useSWR(
+    ["/requests", currentPage, query, statusFilter],
+    () => RequestsService.getRequests({
+      page: currentPage,
+      limit: itemsPerPage,
+      ...(query && { search: query }),
+      ...(statusFilter !== "ALL" && { status: statusFilter }),
+    })
+  );
+
+  const { data: statsData, isLoading: loadingStats } = useSWR("/requests/stats", RequestsService.getStats);
+
+  const [localRequests, setLocalRequests] = useState<ServiceRequest[]>([]);
+
+  useEffect(() => {
+    if (response?.data) {
+      setLocalRequests(response.data);
+    }
+  }, [response?.data]);
+
+  const currentRequests = localRequests;
+  const meta = response?.meta || { totalItems: 0, totalPages: 1 };
+  const totalItems = meta.totalItems;
+  const totalPages = meta.totalPages;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentRequests = filteredRequests.slice(startIndex, startIndex + itemsPerPage);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
@@ -84,30 +86,45 @@ export default function SupervisorDashboardPage() {
     if (!socket) return;
 
     const revalidateList = () => {
-      mutate("/requests");
-      mutate("/requests/stats");
+      mutate(
+        (key: unknown) => (Array.isArray(key) && key[0] === "/requests") || key === "/requests/stats" || key === "/requests",
+        undefined,
+        { revalidate: true }
+      );
     };
 
+    const updateProgressInList = (payload: { requestId: string; progress: number }) => {
+      console.log('Received requestProgressUpdated on Supervisor', payload);
+      setLocalRequests(prev => prev.map(r => r.id === payload.requestId ? { ...r, progress: payload.progress } : r));
+    };
+
+    const updateRequestStatus = (payload: { requestId: string }, status: ServiceRequest['status']) => {
+      setLocalRequests(prev => prev.map(r => r.id === payload.requestId ? { ...r, status: status } : r));
+    };
+
+    const handleQueued = (p: { requestId: string }) => updateRequestStatus(p, "QUEUED");
+    const handleProcessing = (p: { requestId: string }) => updateRequestStatus(p, "PROCESSING");
+
     socket.on("requestCreated", revalidateList);
-    socket.on("requestQueued", revalidateList);
-    socket.on("requestProcessing", revalidateList);
+    socket.on("requestQueued", handleQueued);
+    socket.on("requestProcessing", handleProcessing);
     socket.on("requestReadyForReview", revalidateList);
     socket.on("requestCompleted", revalidateList);
     socket.on("requestFailed", revalidateList);
     socket.on("requestCancelled", revalidateList);
     socket.on("requestRequeued", revalidateList);
-    socket.on("requestProgressUpdated", revalidateList);
+    socket.on("requestProgressUpdated", updateProgressInList);
 
     return () => {
       socket.off("requestCreated", revalidateList);
-      socket.off("requestQueued", revalidateList);
-      socket.off("requestProcessing", revalidateList);
+      socket.off("requestQueued", handleQueued);
+      socket.off("requestProcessing", handleProcessing);
       socket.off("requestReadyForReview", revalidateList);
       socket.off("requestCompleted", revalidateList);
       socket.off("requestFailed", revalidateList);
       socket.off("requestCancelled", revalidateList);
       socket.off("requestRequeued", revalidateList);
-      socket.off("requestProgressUpdated", revalidateList);
+      socket.off("requestProgressUpdated", updateProgressInList);
     };
   }, [socket]);
 
@@ -186,9 +203,9 @@ export default function SupervisorDashboardPage() {
       {/* Grid of Requests */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {loadingRequests && <div className="col-span-full py-10 text-center text-muted-foreground">Loading requests...</div>}
-        {!loadingRequests && filteredRequests.length === 0 && (
+        {!loadingRequests && totalItems === 0 && (
           <div className="col-span-full py-10 text-center text-muted-foreground">
-            {requests.length === 0 ? "No requests found." : "No requests match your search."}
+            No requests found matching your filters.
           </div>
         )}
         {currentRequests.map((req, i) => (

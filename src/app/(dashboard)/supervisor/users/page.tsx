@@ -19,8 +19,6 @@ import { EditUserModal } from "@/components/users/EditUserModal";
 import { DeleteUserModal } from "@/components/users/DeleteUserModal";
 
 export default function OperatorManagementPage() {
-  const { data: users = [], isLoading: loading } = useSWR("/users", UsersService.getUsers);
-  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
@@ -28,29 +26,26 @@ export default function OperatorManagementPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  const { data: response, isLoading: loading } = useSWR(
+    ["/users", currentPage, searchQuery, statusFilter],
+    () => UsersService.getUsers({
+      page: currentPage,
+      limit: itemsPerPage,
+      ...(searchQuery && { search: searchQuery }),
+      ...(statusFilter !== "ALL" && { status: statusFilter }),
+    })
+  );
+
+  const currentUsers = response?.data || [];
+  const meta = response?.meta || { totalItems: 0, totalPages: 1 };
+  const totalItems = meta.totalItems;
+  const totalPages = meta.totalPages;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+
   // Modals
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  const filteredUsers = users.filter((u: User) => {
-    if (u.role !== "OPERATOR") return false;
-    if (statusFilter === "ACTIVE" && !u.isActive) return false;
-    if (statusFilter === "INACTIVE" && u.isActive) return false;
-    
-    const q = searchQuery.toLowerCase();
-    return (
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.toLowerCase().includes(q)
-    );
-  });
-
-  // Pagination Logic
-  const totalItems = filteredUsers.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentUsers = filteredUsers.slice(startIndex, startIndex + itemsPerPage);
 
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
