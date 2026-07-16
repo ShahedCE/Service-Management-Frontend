@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getNavItems } from "./Sidebar";
 import { useAuthStore } from "@/store/auth.store";
+import { useModalStore } from "@/store/modal.store";
 import { useState } from "react";
 
 export function MobileSidebar() {
@@ -74,12 +75,10 @@ export function MobileSidebar() {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 shadow-sm shadow-indigo-200 hover:shadow-md font-medium mb-4 transition-all hover:scale-105 active:scale-95 duration-200"
                 onClick={() => {
                   setOpen(false);
-                  if (pathname === '/dashboard') {
-                    window.history.replaceState({}, '', '/dashboard?new=true');
-                    window.dispatchEvent(new Event('popstate'));
-                  } else {
-                    router.push('/dashboard?new=true');
+                  if (pathname !== '/dashboard') {
+                    router.push('/dashboard');
                   }
+                  setTimeout(() => useModalStore.getState().setCreateModalOpen(true), 100);
                 }}
               >
                 <Plus size={18} className="mr-2" />

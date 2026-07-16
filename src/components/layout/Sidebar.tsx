@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { LayoutDashboard, Users, Network, LogOut, Plus, MessageSquare } from "lucide-react";
 import { useAuthStore } from "@/store/auth.store";
+import { useModalStore } from "@/store/modal.store";
 import { useChatStore } from "@/store/chat.store";
 import { Button } from "@/components/ui/button";
 
@@ -96,12 +97,10 @@ export function Sidebar() {
             <Button
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl h-12 shadow-sm shadow-indigo-200 hover:shadow-md font-medium mb-4 transition-all hover:scale-105 active:scale-95 duration-200"
               onClick={() => {
-                if (pathname === '/dashboard') {
-                  window.history.replaceState({}, '', '/dashboard?new=true');
-                  window.dispatchEvent(new Event('popstate'));
-                } else {
-                  router.push('/dashboard?new=true');
+                if (pathname !== '/dashboard') {
+                  router.push('/dashboard');
                 }
+                setTimeout(() => useModalStore.getState().setCreateModalOpen(true), 100);
               }}
             >
               <Plus size={18} className="mr-2" />

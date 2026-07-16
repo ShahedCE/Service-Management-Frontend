@@ -1,34 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, RefreshCcw, AlertCircle, Plus, ChevronLeft, ChevronRight, Pencil, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PiLightning, PiShieldCheck, PiWarningCircle, PiProhibit } from "react-icons/pi";
 import { motion } from "framer-motion";
-import { RequestsService, ServiceRequest, RequestStats, StatusHistory } from "@/services/requests.service";
-import { useAuthStore } from "@/store/auth.store";
+import { RequestsService, ServiceRequest } from "@/services/requests.service";
 import { useSearchStore } from "@/store/search.store";
 import { useSocketStore } from "@/store/socket.store";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -36,14 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import useSWR, { mutate } from "swr";
 
-const requestSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters.").max(100, "Title is too long."),
-  description: z.string().min(10, "Description must be at least 10 characters.").max(1000, "Description is too long."),
-  priority: z.string().min(1, "Priority is required."),
-});
-
-type RequestFormValues = z.infer<typeof requestSchema>;
+// Extracted Components
+import { CreateRequestModal } from "@/components/requests/CreateRequestModal";
+import { EditRequestModal } from "@/components/requests/EditRequestModal";
+import { RequestHistoryModal } from "@/components/requests/RequestHistoryModal";
+import { RequestCard } from "@/components/requests/RequestCard";
+import { useAuthStore } from "@/store/auth.store";
+import { Pencil, Clock } from "lucide-react";
 
 const getDisplayStatus = (status: string) => {
   if (["PENDING", "QUEUED", "REQUEUED"].includes(status)) return "PROCESSING";
@@ -51,34 +31,21 @@ const getDisplayStatus = (status: string) => {
 };
 
 export default function DashboardPage() {
-  const [requests, setRequests] = useState<ServiceRequest[]>([]);
-  const [statsData, setStatsData] = useState<RequestStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  // SWR for data fetching
+  const { data: requests = [], isLoading: loadingRequests } = useSWR("/requests", RequestsService.getRequests);
+  const { data: statsData, isLoading: loadingStats } = useSWR("/requests/stats", RequestsService.getStats);
+
   const [statusFilter, setStatusFilter] = useState("ALL");
 
-  // Modal states
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Edit modal states
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editRequest, setEditRequest] = useState<ServiceRequest | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState("");
 
-  // History modal states
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [historyData, setHistoryData] = useState<StatusHistory[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
   const [historyRequestId, setHistoryRequestId] = useState("");
-
-  const { user } = useAuthStore();
 
   const { query } = useSearchStore();
 
-  const filteredRequests = requests.filter(req => {
+  const filteredRequests = requests.filter((req: ServiceRequest) => {
     if (statusFilter !== "ALL" && req.status !== statusFilter && getDisplayStatus(req.status) !== statusFilter) return false;
     if (!query) return true;
     const lowerQ = query.toLowerCase();
@@ -109,161 +76,52 @@ export default function DashboardPage() {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
-  const form = useForm<RequestFormValues>({
-    resolver: zodResolver(requestSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      priority: "LOW",
-    },
-  });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [fetchedRequests, fetchedStats] = await Promise.all([
-          RequestsService.getRequests(),
-          RequestsService.getStats(),
-        ]);
-        setRequests(fetchedRequests);
-        setStatsData(fetchedStats);
-      } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
 
-    // Check URL for ?new=true to open dialog
-    const checkQuery = () => {
-      if (typeof window !== "undefined") {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("new") === "true") {
-          setIsDialogOpen(true);
-          // Remove param without reloading
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-    };
-
-    checkQuery();
-    window.addEventListener("popstate", checkQuery);
-    return () => window.removeEventListener("popstate", checkQuery);
-  }, []);
-
+  // Socket.io Real-time Updates
   const { socket } = useSocketStore();
 
   useEffect(() => {
     if (!socket) return;
 
-    const handleCreated = (req: ServiceRequest) => {
-      setRequests((prev) => {
-        // Prevent duplicate addition
-        if (prev.some(r => r.id === req.id)) return prev;
-        return [req, ...prev];
-      });
-      RequestsService.getStats().then(setStatsData);
+    const revalidateList = () => {
+      mutate("/requests");
+      mutate("/requests/stats");
     };
 
-    const handleUpdated = (req: ServiceRequest) => {
-      setRequests((prev) => prev.map((r) => r.id === req.id ? { ...r, ...req } : r));
-      RequestsService.getStats().then(setStatsData);
-    };
-
-    const handleProgress = (data: { requestId: string; progress: number }) => {
-      setRequests((prev) => prev.map((r) => r.id === data.requestId ? { ...r, progress: data.progress } : r));
-    };
-
-    socket.on("requestCreated", handleCreated);
-    socket.on("requestQueued", handleUpdated);
-    socket.on("requestProcessing", handleUpdated);
-    socket.on("requestReadyForReview", handleUpdated);
-    socket.on("requestCompleted", handleUpdated);
-    socket.on("requestFailed", handleUpdated);
-    socket.on("requestCancelled", handleUpdated);
-    socket.on("requestRequeued", handleUpdated);
-    socket.on("requestProgressUpdated", handleProgress);
+    socket.on("requestCreated", revalidateList);
+    socket.on("requestQueued", revalidateList);
+    socket.on("requestProcessing", revalidateList);
+    socket.on("requestReadyForReview", revalidateList);
+    socket.on("requestCompleted", revalidateList);
+    socket.on("requestFailed", revalidateList);
+    socket.on("requestCancelled", revalidateList);
+    socket.on("requestRequeued", revalidateList);
+    socket.on("requestProgressUpdated", revalidateList);
 
     return () => {
-      socket.off("requestCreated", handleCreated);
-      socket.off("requestQueued", handleUpdated);
-      socket.off("requestProcessing", handleUpdated);
-      socket.off("requestReadyForReview", handleUpdated);
-      socket.off("requestCompleted", handleUpdated);
-      socket.off("requestFailed", handleUpdated);
-      socket.off("requestCancelled", handleUpdated);
-      socket.off("requestRequeued", handleUpdated);
-      socket.off("requestProgressUpdated", handleProgress);
+      socket.off("requestCreated", revalidateList);
+      socket.off("requestQueued", revalidateList);
+      socket.off("requestProcessing", revalidateList);
+      socket.off("requestReadyForReview", revalidateList);
+      socket.off("requestCompleted", revalidateList);
+      socket.off("requestFailed", revalidateList);
+      socket.off("requestCancelled", revalidateList);
+      socket.off("requestRequeued", revalidateList);
+      socket.off("requestProgressUpdated", revalidateList);
     };
   }, [socket]);
 
-  const onSubmit = async (data: RequestFormValues) => {
-    setIsSubmitting(true);
-    try {
-      const newReq = await RequestsService.createRequest(data);
-      // Prepend the new request to the list immediately if socket hasn't done it yet
-      setRequests((prev) => {
-        if (prev.some(r => r.id === newReq.id)) return prev;
-        return [newReq, ...prev];
-      });
-
-      // Refresh stats from the server to ensure accuracy
-      RequestsService.getStats().then(setStatsData);
-
-      setIsDialogOpen(false);
-      form.reset();
-    } catch (err) {
-      console.error("Failed to create request", err);
-      alert("Failed to create request");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { user } = useAuthStore();
 
   const handleEditOpen = (req: ServiceRequest) => {
     setEditRequest(req);
-    setEditTitle(req.title);
-    setEditDescription(req.description);
-    setEditError("");
     setIsEditOpen(true);
   };
 
-  const handleEditSubmit = async () => {
-    if (!editRequest) return;
-    if (!editTitle.trim() || !editDescription.trim()) {
-      setEditError("Title and description are required.");
-      return;
-    }
-    setIsEditSubmitting(true);
-    setEditError("");
-    try {
-      const updated = await RequestsService.updateRequest(editRequest.id, {
-        title: editTitle,
-        description: editDescription,
-      });
-      setRequests((prev) => prev.map((r) => r.id === updated.id ? { ...r, ...updated } : r));
-      setIsEditOpen(false);
-    } catch (err) {
-      const error = err as { response?: { data?: { message?: string } } };
-      setEditError(error.response?.data?.message || "Failed to update request.");
-    } finally {
-      setIsEditSubmitting(false);
-    }
-  };
-
-  const handleHistoryOpen = async (reqId: string) => {
+  const handleHistoryOpen = (reqId: string) => {
     setHistoryRequestId(reqId);
-    setHistoryLoading(true);
     setIsHistoryOpen(true);
-    try {
-      const data = await RequestsService.getHistory(reqId);
-      setHistoryData(data);
-    } catch {
-      setHistoryData([]);
-    } finally {
-      setHistoryLoading(false);
-    }
   };
 
   const stats = [
@@ -273,30 +131,8 @@ export default function DashboardPage() {
     { label: "CANCELLED", value: statsData?.cancelled ?? 0, icon: PiProhibit, color: "bg-slate-100 text-slate-600", borderColor: "border-transparent" },
   ];
 
-  const getStatusStyle = (status: string) => {
-    const s = getDisplayStatus(status);
-    switch (s) {
-      case "PROCESSING": return "bg-amber-100 text-amber-800";
-      case "READY_FOR_REVIEW": return "bg-purple-100 text-purple-800";
-      case "APPROVED": return "bg-emerald-100 text-emerald-800";
-      case "COMPLETED": return "bg-green-100 text-green-800";
-      case "REJECTED": return "bg-red-100 text-red-800";
-      case "FAILED": return "bg-red-700 text-white";
-      case "CANCELLED": return "bg-slate-100 text-slate-800";
-      default: return "bg-slate-100 text-slate-700";
-    }
-  };
-
-  const getReqType = (status: string) => {
-    const s = getDisplayStatus(status);
-    if (s === "FAILED") return "error";
-    if (s === "COMPLETED" || s === "CANCELLED") return "runtime";
-    return "progress";
-  };
-
   return (
     <div className="space-y-8 pb-10">
-
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
@@ -305,112 +141,7 @@ export default function DashboardPage() {
             Real-time oversight of current operational flow and service status.
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-6 h-12 shadow-sm shadow-indigo-200 hover:shadow-indigo-300 font-medium shrink-0 transition-all hover:scale-105 active:scale-95 duration-200">
-              <Plus className="mr-2 h-5 w-5" />
-              Create Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-6 py-6 text-white">
-              <DialogTitle className="text-xl font-bold tracking-tight">Create New Request</DialogTitle>
-              <DialogDescription className="text-indigo-100 mt-1.5 text-xs leading-relaxed">
-                Provide detailed information about the service required. A clear description helps supervisors process it faster.
-              </DialogDescription>
-            </div>
-
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="px-6 py-5 space-y-5 bg-card">
-
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-foreground/80">Request Title</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g. Server Maintenance Required"
-                          className="h-11 rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 focus-visible:ring-offset-0 border-border/50"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-foreground/80">Detailed Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe the issue, required resources, and impact..."
-                          className="min-h-[100px] rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 focus-visible:ring-offset-0 border-border/50 resize-none transition-all duration-200 focus:bg-background"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm font-semibold text-foreground/80">Priority Level</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-11 rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 focus-visible:ring-offset-0 border-border/50">
-                            <SelectValue placeholder="Select a priority level" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                          <SelectItem value="LOW">Low - Routine</SelectItem>
-                          <SelectItem value="MEDIUM">Medium - Important</SelectItem>
-                          <SelectItem value="HIGH">High - Urgent</SelectItem>
-                          <SelectItem value="CRITICAL">Critical - Immediate Action</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="pt-4 flex justify-end gap-3 border-t border-border/50">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsDialogOpen(false)}
-                    className="rounded-xl font-medium hover:bg-secondary transition-all hover:scale-105 active:scale-95 duration-200"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 shadow-md shadow-indigo-200 hover:shadow-lg transition-all hover:scale-105 active:scale-95 duration-200"
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <RefreshCcw className="w-4 h-4 animate-spin" />
-                        Submitting...
-                      </span>
-                    ) : (
-                      "Submit Request"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <CreateRequestModal />
       </div>
 
       {/* Stats Cards */}
@@ -431,7 +162,7 @@ export default function DashboardPage() {
                 {stat.label}
               </div>
               <div className="text-3xl font-bold mt-1">
-                {loading ? "..." : stat.value}
+                {loadingStats ? "..." : stat.value}
               </div>
             </div>
           </motion.div>
@@ -465,101 +196,42 @@ export default function DashboardPage() {
 
       {/* Grid of Requests */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {loading && <div className="col-span-full py-10 text-center text-muted-foreground">Loading requests...</div>}
-        {!loading && filteredRequests.length === 0 && (
+        {loadingRequests && <div className="col-span-full py-10 text-center text-muted-foreground">Loading requests...</div>}
+        {!loadingRequests && filteredRequests.length === 0 && (
           <div className="col-span-full py-10 text-center text-muted-foreground">
             {requests.length === 0 ? "No requests found." : "No requests match your search."}
           </div>
         )}
-        {currentRequests.map((req, i) => {
-          const type = getReqType(req.status);
-          const shortId = `#REQ-${req.id.substring(0, 8).toUpperCase()}`;
-          return (
-            <motion.div
-              key={req.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              whileHover={{ y: -6 }}
-              transition={{ delay: 0.2 + (i * 0.05) }}
-              className="bg-card rounded-2xl p-6 shadow-sm border border-border/40 hover:shadow-xl transition-all duration-100 flex flex-col"
+        {currentRequests.map((req, i) => (
+          <RequestCard 
+            key={req.id} 
+            request={req} 
+            index={i} 
+          >
+            {user && ["PENDING", "QUEUED", "PROCESSING", "REQUEUED"].includes(req.status) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); handleEditOpen(req); }}
+                className="rounded-xl text-xs font-medium gap-1.5 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+              >
+                <Pencil size={12} /> Edit
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => { e.stopPropagation(); handleHistoryOpen(req.id); }}
+              className="rounded-xl text-xs font-medium gap-1.5 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              {/* Top row */}
-              <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
-                <span className="text-[10px] font-bold px-2 py-1 bg-indigo-50 text-indigo-600 rounded-md h-fit">
-                  {shortId}
-                </span>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 ${getStatusStyle(req.status)}`}>
-                    {getDisplayStatus(req.status) === "PROCESSING" && <RefreshCcw size={10} className="animate-spin" />}
-                    {getDisplayStatus(req.status) === "FAILED" && <AlertCircle size={10} />}
-                    {getDisplayStatus(req.status) === "COMPLETED" && <CheckCircle size={10} />}
-                    {getDisplayStatus(req.status) === "CANCELLED" && <XCircle size={10} />}
-                    {getDisplayStatus(req.status)}
-                  </span>
-                  {["COMPLETED", "FAILED", "CANCELLED"].includes(req.status) ? null : req.requeueCount === 0 ? (
-                    <span className="text-[9px] font-bold text-emerald-500 uppercase px-1">New</span>
-                  ) : (
-                    <span className="text-[9px] font-bold text-orange-500 uppercase px-1">Requeued: {req.requeueCount}</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Title & Desc */}
-              <h3 className="text-lg font-bold leading-tight">{req.title}</h3>
-              <p className="text-sm text-muted-foreground mt-3 flex-1 line-clamp-3 leading-relaxed">
-                {req.description}
-              </p>
-
-              {/* Bottom Progress */}
-              <div className="mt-6 pt-4 border-t border-border/50">
-                <div className="flex justify-between items-center mb-2 text-xs font-semibold">
-                  <span className="text-muted-foreground">
-                    {type === "progress" ? "Progress" : "Status"}
-                  </span>
-                  <span className={type === "error" ? "text-red-600" : type === "progress" ? "text-indigo-600" : "text-foreground"}>
-                    {type === "progress" ? `${req.progress}%` : type === "error" ? "Failed" : req.status === "CANCELLED" ? "Cancelled" : "Done"}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${type === "error" ? "bg-red-500" :
-                      type === "progress" ? "bg-indigo-600" :
-                        req.status === "COMPLETED" ? "bg-emerald-500" :
-                          type === "runtime" ? "bg-slate-700" : "bg-slate-300"
-                      }`}
-                    style={{ width: `${type === "progress" ? req.progress : type === "error" ? 100 : type === "runtime" ? 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-4 flex gap-2">
-                {user && ["PENDING", "QUEUED"].includes(req.status) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); handleEditOpen(req); }}
-                    className="rounded-xl text-xs font-medium gap-1.5 border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950"
-                  >
-                    <Pencil size={12} /> Edit
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => { e.stopPropagation(); handleHistoryOpen(req.id); }}
-                  className="rounded-xl text-xs font-medium gap-1.5 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                >
-                  <Clock size={12} /> History
-                </Button>
-              </div>
-            </motion.div>
-          );
-        })}
+              <Clock size={12} /> History
+            </Button>
+          </RequestCard>
+        ))}
       </div>
 
       {/* Pagination */}
-      {!loading && totalItems > 0 && (
+      {!loadingRequests && totalItems > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 bg-card p-4 rounded-2xl border border-border/50 shadow-sm">
           <div className="text-sm text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, totalItems)}</span> of <span className="font-semibold text-foreground">{totalItems}</span> requests
@@ -594,102 +266,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Edit Request Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-700 px-6 py-6 text-white">
-            <DialogTitle className="text-xl font-bold tracking-tight">Edit Request</DialogTitle>
-            <DialogDescription className="text-indigo-100 mt-1.5 text-xs leading-relaxed">
-              Update the title or description of your request.
-            </DialogDescription>
-          </div>
-          <div className="px-6 py-5 space-y-5 bg-card">
-            <div>
-              <label className="text-sm font-semibold text-foreground/80 mb-2 block">Title</label>
-              <Input
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="h-11 rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 border-border/50"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-foreground/80 mb-2 block">Description</label>
-              <Textarea
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className="min-h-[100px] rounded-xl bg-secondary/30 focus-visible:ring-indigo-600 border-border/50 resize-none"
-              />
-            </div>
-            {editError && (
-              <div className="text-red-600 text-[13px] font-medium bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2">
-                <AlertCircle size={14} className="shrink-0" />
-                {editError}
-              </div>
-            )}
-            <div className="pt-4 flex justify-end gap-3 border-t border-border/50">
-              <Button variant="ghost" onClick={() => setIsEditOpen(false)} className="rounded-xl font-medium">Cancel</Button>
-              <Button
-                onClick={handleEditSubmit}
-                disabled={isEditSubmitting}
-                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 shadow-md"
-              >
-                {isEditSubmitting ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Status History Dialog */}
-      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-          <div className="bg-gradient-to-br from-slate-700 to-slate-900 px-6 py-6 text-white">
-            <DialogTitle className="text-xl font-bold tracking-tight">Status History</DialogTitle>
-            <DialogDescription className="text-slate-300 mt-1.5 text-xs leading-relaxed">
-              Complete audit trail for #{historyRequestId.substring(0, 8).toUpperCase()}
-            </DialogDescription>
-          </div>
-          <div className="px-6 py-5 bg-card max-h-[400px] overflow-y-auto">
-            {historyLoading ? (
-              <div className="text-center py-8 text-muted-foreground">Loading history...</div>
-            ) : historyData.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No history found.</div>
-            ) : (
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-slate-200" />
-                <div className="space-y-5">
-                  {historyData.map((entry) => (
-                    <div key={entry.id} className="flex gap-4 relative">
-                      <div className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-indigo-400 flex items-center justify-center shrink-0 z-10">
-                        <Clock size={14} className="text-indigo-600" />
-                      </div>
-                      <div className="flex-1 bg-secondary/30 rounded-xl p-3 border border-border/50">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          {entry.oldStatus && (
-                            <>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{entry.oldStatus}</span>
-                              <span className="text-muted-foreground text-xs">→</span>
-                            </>
-                          )}
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">{entry.newStatus}</span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-                          <span>By: <strong className="text-foreground">{entry.changedBy?.name || entry.changedByType}</strong></span>
-                          <span>{new Date(entry.changedAt).toLocaleString()}</span>
-                        </div>
-                        {entry.comment && (
-                          <p className="text-xs text-amber-950 mt-2 italic bg-amber-100/80 border border-amber-200 p-2 rounded-lg">&quot;{entry.comment}&quot;</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Modals */}
+      <EditRequestModal isOpen={isEditOpen} setIsOpen={setIsEditOpen} request={editRequest} />
+      <RequestHistoryModal isOpen={isHistoryOpen} setIsOpen={setIsHistoryOpen} requestId={historyRequestId} />
     </div>
   );
 }
